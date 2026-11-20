@@ -1,0 +1,23 @@
+[Unit]
+Description=stockmon stock monitor and Misaka auto-order
+Documentation=https://github.com/Vegas7/stock_monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=stockmon
+Group=stockmon
+ExecStart=/usr/local/bin/stockmon run
+Restart=always
+RestartSec=10
+MemoryMax=64M
+Environment=GOMEMLIMIT=24MiB
+ProtectSystem=strict
+ReadWritePaths=/var/lib/stockmon
+ReadOnlyPaths=/etc/stockmon
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
