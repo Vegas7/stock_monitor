@@ -271,6 +271,17 @@ func (c *Client) loginLocked(ctx context.Context) error {
 		}
 		err = errors.New(c.scrub(d))
 	}
+	// The console keeps the tokens on the user object (Vt(e.user)); top level is a fallback.
+	if err == nil {
+		var u struct {
+			AccessToken  string `json:"access_token"`
+			RefreshToken string `json:"refresh_token"`
+			SlidingToken string `json:"sliding_token"`
+		}
+		if json.Unmarshal(r.User, &u) == nil && (u.AccessToken != "" || u.SlidingToken != "") {
+			r.AccessToken, r.RefreshToken, r.SlidingToken = u.AccessToken, u.RefreshToken, u.SlidingToken
+		}
+	}
 	if err == nil && r.AccessToken == "" && r.SlidingToken == "" {
 		err = fmt.Errorf("login response has no token: %w", ErrFormatChanged)
 	}

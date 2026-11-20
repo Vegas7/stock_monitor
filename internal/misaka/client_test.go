@@ -197,3 +197,15 @@ func TestAny401RenewsSession(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLoginTokensInsideUser(t *testing.T) {
+	f := newFake(t)
+	f.set("POST session/login", jsonH(200, `{"user":{"id":1,"email":"x","access_token":"UA","refresh_token":"UR"}}`))
+	st := &memStore{}
+	if err := f.client(st).Login(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := st.LoadTokens(); got.Access != "UA" || got.Refresh != "UR" {
+		t.Fatal(got)
+	}
+}
