@@ -27,19 +27,19 @@ func TestDefaultSettings(t *testing.T) {
 
 func TestValidateRejects(t *testing.T) {
 	cases := map[string]func(c *Config){
-		"min 29":            func(c *Config) { c.Settings.IntervalMinSec = 29 },
-		"max<min":           func(c *Config) { c.Settings.IntervalMaxSec = 40; c.Settings.IntervalMinSec = 50 },
-		"bad tz":            func(c *Config) { c.Settings.Timezone = "Mars/X" },
-		"hour 24":           func(c *Config) { c.Settings.DailyHeartbeatHour = 24 },
-		"unknown type":      func(c *Config) { c.Items[0].Type = "ftp" },
-		"regex match":       func(c *Config) { c.Items[1].Web.Match = "regex" },
-		"present maybe":     func(c *Config) { c.Items[1].Web.PresentMeans = "maybe" },
-		"misaka no plan":    func(c *Config) { c.Items[0].Misaka.Plan = "" },
-		"dup ids":           func(c *Config) { c.Items[1].ID = c.Items[0].ID },
-		"armed no arm_id":   func(c *Config) { c.Items[0].Misaka.AutoOrder.Enabled = true },
-		"misaka nil block":  func(c *Config) { c.Items[0].Misaka = nil },
-		"web empty url":     func(c *Config) { c.Items[1].Web.URL = "" },
-		"web empty value":   func(c *Config) { c.Items[1].Web.Value = "" },
+		"min 29":           func(c *Config) { c.Settings.IntervalMinSec = 29 },
+		"max<min":          func(c *Config) { c.Settings.IntervalMaxSec = 40; c.Settings.IntervalMinSec = 50 },
+		"bad tz":           func(c *Config) { c.Settings.Timezone = "Mars/X" },
+		"hour 24":          func(c *Config) { c.Settings.DailyHeartbeatHour = 24 },
+		"unknown type":     func(c *Config) { c.Items[0].Type = "ftp" },
+		"regex match":      func(c *Config) { c.Items[1].Web.Match = "regex" },
+		"present maybe":    func(c *Config) { c.Items[1].Web.PresentMeans = "maybe" },
+		"misaka no plan":   func(c *Config) { c.Items[0].Misaka.Plan = "" },
+		"dup ids":          func(c *Config) { c.Items[1].ID = c.Items[0].ID },
+		"armed no arm_id":  func(c *Config) { c.Items[0].Misaka.AutoOrder.Enabled = true },
+		"misaka nil block": func(c *Config) { c.Items[0].Misaka = nil },
+		"web empty url":    func(c *Config) { c.Items[1].Web.URL = "" },
+		"web empty value":  func(c *Config) { c.Items[1].Web.Value = "" },
 	}
 	for name, mut := range cases {
 		t.Run(name, func(t *testing.T) {

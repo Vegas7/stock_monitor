@@ -77,17 +77,17 @@ func webServer(t *testing.T, body string) *counter {
 }
 
 type harness struct {
-	t          *testing.T
-	dir        string
-	cfgPath    string
-	statePath  string
-	tg         *tgFake
-	opts       Options
-	sleepsMu   sync.Mutex
-	sleeps     []time.Duration
-	now        atomic.Pointer[time.Time]
-	cancel     context.CancelFunc
-	done       chan error
+	t         *testing.T
+	dir       string
+	cfgPath   string
+	statePath string
+	tg        *tgFake
+	opts      Options
+	sleepsMu  sync.Mutex
+	sleeps    []time.Duration
+	now       atomic.Pointer[time.Time]
+	cancel    context.CancelFunc
+	done      chan error
 }
 
 func newHarness(t *testing.T, cfg *config.Config) *harness {

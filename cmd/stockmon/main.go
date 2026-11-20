@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Vegas7/stock_monitor/internal/menu"
 	"github.com/Vegas7/stock_monitor/internal/service"
 )
 
@@ -43,6 +44,11 @@ func main() {
 	switch cmd {
 	case "version":
 		fmt.Println(version)
+	case "menu":
+		err = menu.Run(ctx, menu.Options{
+			ConfigPath: *cfgPath, StatePath: *statePath, Version: version,
+			In: os.Stdin, Out: os.Stdout, ReadSecret: readSecret, ServiceStatus: serviceStatus,
+		})
 	case "run":
 		err = service.Run(ctx, service.Options{ConfigPath: *cfgPath, StatePath: *statePath, Version: version})
 	default:

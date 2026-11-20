@@ -25,9 +25,9 @@ func (m *memStore) SaveTokens(t Tokens) error {
 
 type rec struct {
 	Method, Path, Auth string
-	Header         http.Header
-	Body           map[string]any
-	RawBody        string
+	Header             http.Header
+	Body               map[string]any
+	RawBody            string
 }
 
 // fake is a scriptable Misaka API. Handlers are keyed by "METHOD path" (path without /api/).

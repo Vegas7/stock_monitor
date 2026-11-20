@@ -192,7 +192,9 @@ type chatNotifier struct {
 	chat string
 }
 
-func (n chatNotifier) Notify(ctx context.Context, text string) error { return n.c.Send(ctx, n.chat, text) }
+func (n chatNotifier) Notify(ctx context.Context, text string) error {
+	return n.c.Send(ctx, n.chat, text)
+}
 
 // For returns a Notifier bound to chatID.
 func (c *Client) For(chatID string) Notifier { return chatNotifier{c, chatID} }

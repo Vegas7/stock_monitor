@@ -37,7 +37,9 @@ func misakaServer(t *testing.T, regions, plans string) *misaka.Client {
 
 const rOK = `[{"id":11,"slug":"nrt04","available":true}]`
 
-func mItem() config.MisakaItem { return config.MisakaItem{Region: "nrt04", Plan: "s3n-1c1g", Image: "debian-13"} }
+func mItem() config.MisakaItem {
+	return config.MisakaItem{Region: "nrt04", Plan: "s3n-1c1g", Image: "debian-13"}
+}
 
 func TestMisakaInStock(t *testing.T) {
 	cl := misakaServer(t, rOK, `[{"id":42,"slug":"s3n-1c1g","name":"S3N 1C1G","available":true}]`)
