@@ -23,5 +23,5 @@ var ErrFormatChanged = misaka.ErrFormatChanged
 
 // Urgent reports errors that warn immediately instead of after N failures.
 func Urgent(err error) bool {
-	return err != nil && errors.Is(err, ErrFormatChanged)
+	return err != nil && (errors.Is(err, ErrFormatChanged) || errors.Is(err, misaka.ErrLogin))
 }
