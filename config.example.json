@@ -1,0 +1,45 @@
+{
+  "telegram": { "bot_token": "", "chat_id": "" },
+  "misaka": { "username": "", "password": "" },
+  "settings": {
+    "interval_min_sec": 30,
+    "interval_max_sec": 60,
+    "fail_warn_after": 3,
+    "fail_remind_minutes": 60,
+    "daily_heartbeat_hour": 9,
+    "timezone": "Asia/Tokyo"
+  },
+  "items": [
+    {
+      "id": "a1b2c3d4",
+      "name": "Misaka Tokyo 1C1G",
+      "type": "misaka_plan",
+      "enabled": true,
+      "misaka": {
+        "region": "nrt04",
+        "plan": "s3n-1c1g",
+        "image": "debian-13",
+        "auto_order": {
+          "enabled": false,
+          "arm_id": "",
+          "billing_cycle": "monthly",
+          "ssh_key_ids": [],
+          "hostname": "tokyo-1",
+          "coupon": ""
+        }
+      }
+    },
+    {
+      "id": "e5f6a7b8",
+      "name": "Example shop item",
+      "type": "web",
+      "enabled": false,
+      "web": {
+        "url": "https://example.com/product",
+        "match": "keyword",
+        "value": "Sold out",
+        "present_means": "out_of_stock"
+      }
+    }
+  ]
+}

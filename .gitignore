@@ -1,0 +1,6 @@
+# Never commit real configuration or runtime state (public repo).
+config.json
+state.json
+*.local.*
+/dist/
+/.superpowers/
