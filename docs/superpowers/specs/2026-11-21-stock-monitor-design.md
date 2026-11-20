@@ -295,6 +295,13 @@ Checkers implement one shared interface, `Check(ctx) (Status, detail, error)`. O
 - Auto-ordering for other providers, behind the `Orderer` interface.
 - Optional Telegram commands (`/status`, `/arm`, `/disarm`).
 
+## 10a. Verified live (2026-11-21, owner's account, local test build)
+
+- API base `https://app.misaka.io/api/` is correct. `POST session/login {username, password}` works; the access/refresh tokens are **inside `user`** (`user.access_token`, `user.refresh_token`), as the console's `Vt(e.user)` stores them, not at the top level.
+- `GET mc2/regions` + `GET mc2/regions/{id}/plans` give availability: NRT04 `s3n-1c1g` read `available: false`, `unavailable_reason: "out_of_stock"`; MIA01 `s3n-1c1g` read available.
+- `POST mc2/instances/calculate_price/` with `billing_cycle: "monthly"` works for an in-stock plan (response fields include `amount_due_today`, `recurring_price`, `start_date_text`, `end_date_text`; its `billing_cycle` echoes an internal code, e.g. `"7"`). For a sold-out plan it returns **HTTP 400 "Plan not available, please contact support."** — a clear error.
+- Still unverified: the order request itself (`POST mc2/instances/`), SSH key ID format, and whether `issue_invoice: true` uses account credit. Token lifetime is covered by the multi-hour run.
+
 ## 11. Must be checked live with the owner during the build
 
 The owner enters the password; the builder never types it. Using a test build with the owner's account:
