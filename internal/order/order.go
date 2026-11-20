@@ -31,9 +31,15 @@ func Armed(it config.Item, st state.State) bool {
 func Place(ctx context.Context, cl *misaka.Client, store *state.Store, it config.Item, r *redact.Redactor) string {
 	m := it.Misaka
 	ao := m.AutoOrder
+	// Look up IDs first: if this fails no order is sent, so the arm is kept for the next check.
+	req, err := resolve(ctx, cl, m)
+	if err != nil {
+		return fmt.Sprintf("%s%s\nCouldn't prepare the order, so nothing was sent (still armed; will retry on the next in-stock check): %s",
+			monitor.PrefixOrderProb, it.Name, r.Err(err))
+	}
 	idx := -1
 	var already bool
-	err := store.Update(func(s *state.State) {
+	err = store.Update(func(s *state.State) {
 		if s.ArmUsed(ao.ArmID) {
 			already = true
 			return
@@ -58,12 +64,6 @@ func Place(ctx context.Context, cl *misaka.Client, store *state.Store, it config
 		})
 	}
 
-	req, err := resolve(ctx, cl, m)
-	if err != nil {
-		detail := r.Err(err)
-		finish(state.OrderFailed, func(o *state.OrderRecord) { o.Message = detail })
-		return fmt.Sprintf("%s%s\nNo order was sent: %s\nRe-arm in the menu to try again.", monitor.PrefixOrderProb, it.Name, detail)
-	}
 	res, err := cl.CreateOrder(ctx, req)
 	switch {
 	case err == nil:

@@ -201,5 +201,11 @@ func (c *Client) CalculatePrice(ctx context.Context, r PriceRequest) (map[string
 // CreateOrder places an order. The caller must never retry it.
 func (c *Client) CreateOrder(ctx context.Context, r OrderRequest) (OrderResult, error) {
 	var out OrderResult
-	return out, c.do(ctx, http.MethodPost, "mc2/instances/", r, &out)
+	if err := c.do(ctx, http.MethodPost, "mc2/instances/", r, &out); err != nil {
+		return out, err
+	}
+	if len(out.Orders) == 0 && out.InvoiceID == "" {
+		return out, fmt.Errorf("order response has no order or invoice id: %w", ErrFormatChanged)
+	}
+	return out, nil
 }

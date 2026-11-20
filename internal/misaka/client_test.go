@@ -181,3 +181,19 @@ func contains(s, sub string) bool {
 		return false
 	})()
 }
+
+func TestAny401RenewsSession(t *testing.T) {
+	f := newFake(t)
+	st := &memStore{t: Tokens{Access: "OLD", Refresh: "R0"}}
+	f.set("GET mc2/regions", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer OLD" {
+			jsonH(401, `{"code":"not_authenticated","detail":"Authentication credentials were not provided."}`)(w, r)
+			return
+		}
+		jsonH(200, regionsJSON)(w, r)
+	})
+	f.set("POST session/refresh", jsonH(200, `{"access":"NEW"}`))
+	if _, err := f.client(st).Regions(ctx); err != nil {
+		t.Fatal(err)
+	}
+}

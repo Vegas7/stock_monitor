@@ -324,3 +324,16 @@ func TestAddWebItemFoundInStockNoJSWarning(t *testing.T) {
 		t.Fatal("should be saved without asking")
 	}
 }
+
+func TestEditingArmedTargetDisarms(t *testing.T) {
+	e := newEnv(t)
+	c := misakaCfg()
+	c.Items[0].Misaka.AutoOrder.Enabled = true
+	c.Items[0].Misaka.AutoOrder.ArmID = "0123456789abcdef"
+	e.save(c)
+	out := e.run("3", "1", "4", "", "s3n-2c2g", "", "0")
+	got := e.cfg().Items[0].Misaka
+	if got.Plan != "s3n-2c2g" || got.AutoOrder.Enabled || !strings.Contains(out, "disarmed") {
+		t.Fatal(got, out)
+	}
+}

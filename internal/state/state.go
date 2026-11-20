@@ -19,6 +19,7 @@ import (
 type State struct {
 	Items            map[string]*ItemState `json:"items"`
 	Tokens           misaka.Tokens         `json:"tokens"`
+	TokensUser       string                `json:"tokens_user"` // Misaka username the tokens belong to
 	UsedArmIDs       []string              `json:"used_arm_ids"`
 	Orders           []OrderRecord         `json:"orders"`
 	CleanShutdown    bool                  `json:"clean_shutdown"`

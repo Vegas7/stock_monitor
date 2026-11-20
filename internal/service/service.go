@@ -102,18 +102,11 @@ func Run(ctx context.Context, o Options) error {
 	}
 	s.setConfig(cfg)
 
-	_, statErr := os.Stat(o.StatePath)
-	existed := statErr == nil
-	store, err := state.Open(o.StatePath)
-	if err != nil {
-		s.notify(ctx, fmt.Sprintf("%sstate file unreadable, stockmon stopped (no orders will be placed): %v", monitor.PrefixWarning, err))
-		return err
+	store, restart := s.openState(ctx)
+	if store == nil {
+		return nil // cancelled while waiting
 	}
 	s.store = store
-	restart := existed && !store.Snapshot().CleanShutdown
-	if err := store.Update(func(st *state.State) { st.CleanShutdown = false }); err != nil {
-		return err
-	}
 
 	start := fmt.Sprintf("stockmon started %s: %d items", o.Version, enabledCount(cfg))
 	if restart {
@@ -159,6 +152,34 @@ loop:
 	s.mu.Unlock()
 	s.wg.Wait()
 	return store.Update(func(st *state.State) { st.CleanShutdown = true })
+}
+
+// openState opens the state file and marks the run as started. While that fails it
+// warns once (then every fail_remind_minutes) and retries; it never orders without
+// state, because state is what remembers which arms were already spent.
+func (s *svc) openState(ctx context.Context) (*state.Store, bool) {
+	var lastWarn time.Time
+	for {
+		_, statErr := os.Stat(s.o.StatePath)
+		existed := statErr == nil
+		st, err := state.Open(s.o.StatePath)
+		if err == nil {
+			restart := existed && !st.Snapshot().CleanShutdown
+			if err = st.Update(func(x *state.State) { x.CleanShutdown = false }); err == nil {
+				return st, restart
+			}
+		}
+		cfg, _ := s.current()
+		now := s.o.Now()
+		if lastWarn.IsZero() || now.Sub(lastWarn) >= time.Duration(cfg.Settings.FailRemindMinutes)*time.Minute {
+			lastWarn = now
+			s.notify(ctx, fmt.Sprintf("%sstate file unreadable or not writable, monitoring is paused (no orders will be placed)\n%v\nFix or remove %s; stockmon retries automatically.",
+				monitor.PrefixWarning, err, s.o.StatePath))
+		}
+		if !s.o.Sleep(ctx, s.o.ReloadEvery) {
+			return nil, false
+		}
+	}
 }
 
 func enabledCount(c *config.Config) int {
@@ -215,6 +236,10 @@ func (s *svc) misakaClient() *misaka.Client {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.mc == nil {
+		// Tokens belong to one account: drop them when the configured account changed.
+		if user := s.cfg.Misaka.Username; s.store.Snapshot().TokensUser != user {
+			s.store.Update(func(st *state.State) { st.Tokens = misaka.Tokens{}; st.TokensUser = user })
+		}
 		s.mc = misaka.New(s.o.MisakaBaseURL, s.cfg.Misaka.Username, s.cfg.Misaka.Password, s.store, s.o.HTTP)
 		s.mc.Now = s.o.Now
 	}
@@ -300,6 +325,21 @@ func (s *svc) syncRunners(ctx context.Context, cfg *config.Config) {
 	}
 }
 
+// stillArmed re-reads the config file so a disarm in the menu wins even before the
+// next reload tick.
+func (s *svc) stillArmed(it config.Item) bool {
+	c, err := config.Load(s.o.ConfigPath)
+	if err != nil {
+		c, _ = s.current()
+	}
+	for _, x := range c.Items {
+		if x.ID == it.ID && x.Enabled && x.Misaka != nil {
+			return x.Misaka.AutoOrder.Enabled && x.Misaka.AutoOrder.ArmID == it.Misaka.AutoOrder.ArmID
+		}
+	}
+	return false
+}
+
 func (s *svc) checker(it config.Item) check.Checker {
 	if it.Type == config.TypeMisaka {
 		return check.NewMisaka(*it.Misaka, s.misakaClient())
@@ -320,21 +360,22 @@ func (s *svc) runItem(ctx context.Context, it config.Item) {
 		}
 		cfg, _ := s.current()
 		var msgs []string
-		var became bool
 		red := s.redactor() // must not be called inside store.Update (it reads the store)
 		s.store.Update(func(st *state.State) {
 			prev := state.ItemState{}
 			if p := st.Items[it.ID]; p != nil {
 				prev = *p
 			}
-			next, m, b := monitor.Apply(prev, it, res, err, s.o.Now(), cfg.Settings, red)
+			next, m, _ := monitor.Apply(prev, it, res, err, s.o.Now(), cfg.Settings, red)
 			st.Items[it.ID] = &next
-			msgs, became = m, b
+			msgs = m
 		})
 		for _, m := range msgs {
 			s.notify(ctx, m)
 		}
-		if became && order.Armed(it, s.store.Snapshot()) {
+		// Order whenever an armed item is seen in stock (also when armed while already
+		// in stock). Place spends the arm atomically, so this orders at most once.
+		if err == nil && res.Status == check.InStock && order.Armed(it, s.store.Snapshot()) && s.stillArmed(it) {
 			// An order must not be interrupted by a config reload or shutdown.
 			s.notify(ctx, order.Place(context.WithoutCancel(ctx), s.misakaClient(), s.store, it, s.redactor()))
 		}

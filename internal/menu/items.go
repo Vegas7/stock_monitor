@@ -176,9 +176,15 @@ func (m *menu) editItem(c *config.Config) {
 				it.Web.ValueText = m.askDefault("Element text must contain", it.Web.ValueText)
 			}
 		} else {
+			before := *it.Misaka
 			it.Misaka.Region = m.askDefault("Region", it.Misaka.Region)
 			it.Misaka.Plan = m.askDefault("Plan", it.Misaka.Plan)
 			it.Misaka.Image = m.askDefault("Image", it.Misaka.Image)
+			changed := before.Region != it.Misaka.Region || before.Plan != it.Misaka.Plan || before.Image != it.Misaka.Image
+			if changed && it.Misaka.AutoOrder.Enabled {
+				it.Misaka.AutoOrder.Enabled = false
+				m.printf("Auto-order was disarmed because what it would order changed. Re-arm in menu 7.\n")
+			}
 		}
 	default:
 		return

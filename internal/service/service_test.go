@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Vegas7/stock_monitor/internal/config"
+	"github.com/Vegas7/stock_monitor/internal/misaka"
 	"github.com/Vegas7/stock_monitor/internal/state"
 )
 
@@ -400,5 +402,120 @@ func TestMemoryBudget(t *testing.T) {
 	t.Logf("resident≈%dMB heapInuse=%dMB", resident>>20, ms.HeapInuse>>20)
 	if resident > 20<<20 || ms.HeapInuse > 8<<20 {
 		t.Fatalf("resident≈%d MB, heap in use %d MB", resident>>20, ms.HeapInuse>>20)
+	}
+}
+
+func armedMisakaConfig() *config.Config {
+	c := baseConfig(true)
+	c.Misaka = config.MisakaAccount{Username: "u@example.com", Password: "pw-secret"}
+	c.Items = []config.Item{{ID: "m", Name: "Tokyo", Type: config.TypeMisaka, Enabled: true,
+		Misaka: &config.MisakaItem{Region: "nrt04", Plan: "s3n-1c1g", Image: "debian-13",
+			AutoOrder: config.AutoOrder{Enabled: true, ArmID: "arm-x", BillingCycle: "monthly"}}}}
+	return c
+}
+
+func TestArmedWhileAlreadyInStockOrders(t *testing.T) {
+	srv, posts := misakaFake(t)
+	h := newHarness(t, armedMisakaConfig())
+	s, _ := state.Open(h.statePath)
+	s.Update(func(st *state.State) {
+		st.CleanShutdown = true
+		st.Items["m"] = &state.ItemState{Stock: "in_stock"}
+	})
+	h.opts.MisakaBaseURL = srv.URL + "/api/"
+	h.start()
+	eventually(t, "order", func() bool { return posts.Load() == 1 })
+	time.Sleep(50 * time.Millisecond)
+	h.stop()
+	if posts.Load() != 1 {
+		t.Fatal(posts.Load())
+	}
+}
+
+func TestDisarmOnDiskWinsBeforeReload(t *testing.T) {
+	var inStock atomic.Bool
+	var posts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/session/login":
+			io.WriteString(w, `{"user":{"id":1},"access_token":"A","refresh_token":"R"}`)
+		case "/api/mc2/regions":
+			io.WriteString(w, `[{"id":11,"slug":"nrt04","available":true}]`)
+		case "/api/mc2/regions/11/plans":
+			fmt.Fprintf(w, `[{"id":42,"slug":"s3n-1c1g","available":%v}]`, inStock.Load())
+		case "/api/mc2/images":
+			io.WriteString(w, `[{"id":5,"slug":"debian-13"}]`)
+		case "/api/mc2/instances/":
+			posts.Add(1)
+			io.WriteString(w, `{"orders":[1]}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := armedMisakaConfig()
+	h := newHarness(t, c)
+	h.opts.MisakaBaseURL = srv.URL + "/api/"
+	h.opts.ReloadEvery = time.Hour // the runner keeps its armed copy
+	h.start()
+	eventually(t, "first check", func() bool { st, _ := state.Open(h.statePath); return st.Snapshot().Items["m"] != nil })
+	c.Items[0].Misaka.AutoOrder.Enabled = false
+	h.writeConfig(c)
+	inStock.Store(true)
+	eventually(t, "in stock seen", func() bool { return h.tg.count("🟢 IN STOCK") == 1 })
+	time.Sleep(30 * time.Millisecond)
+	h.stop()
+	if posts.Load() != 0 {
+		t.Fatal("ordered after the owner disarmed")
+	}
+}
+
+func TestCorruptStateWarnsOnceAndWaits(t *testing.T) {
+	h := newHarness(t, baseConfig(true))
+	os.WriteFile(h.statePath, []byte("{corrupt"), 0o600)
+	h.start()
+	eventually(t, "warning", func() bool { return h.tg.count("state file") == 1 })
+	time.Sleep(100 * time.Millisecond) // ~10 retry ticks
+	if n := h.tg.count("state file"); n != 1 {
+		t.Fatalf("warned %d times", n)
+	}
+	os.Remove(h.statePath) // owner fixes it
+	eventually(t, "starts after fix", func() bool { return h.tg.count("stockmon started") == 1 })
+	if err := h.stop(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAccountChangeDropsOldSession(t *testing.T) {
+	var sawOld atomic.Bool
+	var logins atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer OLDACCOUNT" {
+			sawOld.Store(true)
+		}
+		switch r.URL.Path {
+		case "/api/session/login":
+			logins.Add(1)
+			io.WriteString(w, `{"user":{"id":2},"access_token":"NEWACC","refresh_token":"R"}`)
+		case "/api/mc2/regions":
+			io.WriteString(w, `[{"id":11,"slug":"nrt04","available":true}]`)
+		case "/api/mc2/regions/11/plans":
+			io.WriteString(w, `[{"id":42,"slug":"s3n-1c1g","available":false}]`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := armedMisakaConfig()
+	c.Misaka.Username = "new@example.com"
+	h := newHarness(t, c)
+	s, _ := state.Open(h.statePath)
+	s.Update(func(st *state.State) {
+		st.CleanShutdown = true
+		st.Tokens = misaka.Tokens{Access: "OLDACCOUNT", Refresh: "OLDREFRESH"}
+		st.TokensUser = "old@example.com"
+	})
+	h.opts.MisakaBaseURL = srv.URL + "/api/"
+	h.start()
+	eventually(t, "check", func() bool { return logins.Load() == 1 })
+	h.stop()
+	if sawOld.Load() {
+		t.Fatal("used the previous account's session")
 	}
 }

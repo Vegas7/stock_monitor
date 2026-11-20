@@ -186,9 +186,11 @@ func ctype(r *http.Response) string {
 	return "no content type"
 }
 
-func tokenInvalid(err error) bool {
+// needsRenew reports an auth failure that a fresh session may fix
+// (token_not_valid, or any 401 on an authenticated path).
+func needsRenew(err error) bool {
 	var ae *APIError
-	return errors.As(err, &ae) && ae.Code == "token_not_valid"
+	return errors.As(err, &ae) && (ae.Code == "token_not_valid" || ae.Status == http.StatusUnauthorized)
 }
 
 // do runs an authenticated request, renewing the session once if needed.
@@ -197,7 +199,7 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 		return err
 	}
 	err := c.raw(ctx, method, path, body, out)
-	if !tokenInvalid(err) {
+	if !needsRenew(err) {
 		return err
 	}
 	if rerr := c.renew(ctx); rerr != nil {

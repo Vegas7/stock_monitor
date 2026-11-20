@@ -205,3 +205,25 @@ func TestRecoverPending(t *testing.T) {
 		t.Fatal("statuses")
 	}
 }
+
+func TestResolveFailureKeepsArmAndSendsNothing(t *testing.T) {
+	e := newEnv(t, ok(`{"orders":[1]}`))
+	it := armedItem()
+	it.Misaka.Image = "no-such-image"
+	msg := Place(ctx, e.cl, e.store, it, nil)
+	if e.posts.Load() != 0 || !strings.Contains(msg, "still armed") {
+		t.Fatal(e.posts.Load(), msg)
+	}
+	snap := e.store.Snapshot()
+	if snap.ArmUsed("arm-1") || len(snap.Orders) != 0 || !Armed(it, snap) {
+		t.Fatal("arm must not be spent when no order was sent", snap)
+	}
+}
+
+func TestEmptyOrderResponseIsUnknown(t *testing.T) {
+	e := newEnv(t, ok(`{}`))
+	msg := Place(ctx, e.cl, e.store, armedItem(), nil)
+	if !strings.Contains(msg, "status unknown") || strings.Contains(msg, "Order placed") {
+		t.Fatal(msg)
+	}
+}

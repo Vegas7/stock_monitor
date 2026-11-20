@@ -152,3 +152,12 @@ func TestImagesSSHKeysAndPrice(t *testing.T) {
 		t.Fatal(p, err)
 	}
 }
+
+func TestCreateOrderEmptyResultIsUnclear(t *testing.T) {
+	f := newFake(t)
+	f.set("POST mc2/instances/", jsonH(201, `{"detail":"accepted"}`))
+	_, err := f.client(nil).CreateOrder(ctx, OrderRequest{Count: 1})
+	if err == nil || !Unclear(err) || !errors.Is(err, ErrFormatChanged) {
+		t.Fatal(err)
+	}
+}

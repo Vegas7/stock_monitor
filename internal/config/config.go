@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	_ "time/tzdata" // time zones work even without /usr/share/zoneinfo
 
 	"github.com/Vegas7/stock_monitor/internal/fsutil"
 )
