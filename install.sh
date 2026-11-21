@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # stockmon installer for Debian/Ubuntu.
-#   sudo bash install.sh            install (or update if already installed)
-#   sudo bash install.sh update     update to the latest release
-#   sudo bash install.sh uninstall  remove stockmon
+#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monitor/main/install.sh)"              install (or update)
+#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monitor/main/install.sh)" _ uninstall  remove stockmon
+#   (or download it and run: sudo bash install.sh [install|update|uninstall])
 # Testing overrides: STOCKMON_RELEASE_API, STOCKMON_PREFIX, STOCKMON_SKIP_SYSTEMD=1
 set -euo pipefail
 
@@ -92,7 +92,7 @@ do_install() {
   cat <<MSG
 
 Next steps:
-  1. sudo stockmon menu                     # Telegram, Misaka login, items
+  1. sudo stockmon menu                     # Telegram, account login, items
   2. sudo systemctl enable --now stockmon   # start monitoring
   Logs: journalctl -u stockmon -f
 MSG
@@ -145,7 +145,7 @@ do_uninstall() {
     echo "Cancelled; nothing was changed."
     return
   fi
-  read -r -p "Also delete config and state? They contain your Misaka password and Telegram token (recommended) [Y/n]: " del || true
+  read -r -p "Also delete config and state? They contain your account password and Telegram token (recommended) [Y/n]: " del || true
   systemd disable --now stockmon 2>/dev/null || true
   rm -f "$UNIT"
   systemd daemon-reload || true

@@ -14,8 +14,7 @@ The order is created as an **unpaid invoice** — you pay it yourself.
 ## Install (Debian / Ubuntu)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monitor/main/install.sh -o install.sh
-sudo bash install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monitor/main/install.sh)"
 ```
 
 The script downloads the latest release for your CPU, checks its SHA-256, creates
@@ -65,7 +64,7 @@ Menu option 9 does the same.
 ## Uninstall
 
 ```bash
-sudo stockmon uninstall         # or: sudo bash install.sh uninstall
+sudo stockmon uninstall
 ```
 
 You will be asked whether to also delete the config and state (recommended — they
