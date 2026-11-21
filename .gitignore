@@ -4,3 +4,4 @@ state.json
 *.local.*
 /dist/
 /.superpowers/
+/docs/superpowers/
