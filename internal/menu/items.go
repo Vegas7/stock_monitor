@@ -29,6 +29,7 @@ func (m *menu) addItem(c *config.Config) {
 	c.Items = append(c.Items, it)
 	if m.save(c) {
 		m.printf("Saved %q. The service picks up changes within a few seconds.\n", it.Name)
+		m.notice(c, fmt.Sprintf("➕ Item added: %s\n%s", it.Name, describe(it)))
 	}
 }
 
@@ -153,21 +154,29 @@ func (m *menu) editItem(c *config.Config) {
 		return
 	}
 	it := &c.Items[i]
+	name := it.Name
 	toggle := "Disable"
 	if !it.Enabled {
 		toggle = "Enable"
 	}
+	var msg string
 	m.printf(" 1) %s\n 2) Rename\n 3) Remove\n 4) Edit what is checked\n 0) Back\n", toggle)
 	switch m.choose("> ", 4) {
 	case 1:
 		it.Enabled = !it.Enabled
+		msg = "⏸ Item disabled: " + name
+		if it.Enabled {
+			msg = "▶️ Item enabled: " + name
+		}
 	case 2:
 		it.Name = m.askDefault("New name", it.Name)
+		msg = fmt.Sprintf("✏️ Item renamed: %s → %s", name, it.Name)
 	case 3:
 		if !m.yes(fmt.Sprintf("Remove %q?", it.Name)) {
 			return
 		}
 		c.Items = append(c.Items[:i], c.Items[i+1:]...)
+		msg = "🗑 Item removed: " + name
 	case 4:
 		if it.Web != nil {
 			it.Web.URL = m.askDefault("Page URL", it.Web.URL)
@@ -175,6 +184,7 @@ func (m *menu) editItem(c *config.Config) {
 			if it.Web.Match == config.MatchSelector {
 				it.Web.ValueText = m.askDefault("Element text must contain", it.Web.ValueText)
 			}
+			msg = fmt.Sprintf("✏️ Item changed: %s\n%s", name, describe(*it))
 		} else {
 			before := *it.Misaka
 			it.Misaka.Region = m.askDefault("Region", it.Misaka.Region)
@@ -185,11 +195,16 @@ func (m *menu) editItem(c *config.Config) {
 				it.Misaka.AutoOrder.Enabled = false
 				m.printf("Auto-order was disarmed because what it would order changed. Re-arm in menu 7.\n")
 			}
+			msg = fmt.Sprintf("✏️ Item changed: %s\n%s", name, describe(*it))
+			if changed && !it.Misaka.AutoOrder.Enabled && before.AutoOrder.Enabled {
+				msg += "\nAuto-order was disarmed; re-arm it in the menu."
+			}
 		}
 	default:
 		return
 	}
 	if m.save(c) {
 		m.printf("Saved.\n")
+		m.notice(c, msg)
 	}
 }

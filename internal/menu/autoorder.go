@@ -36,10 +36,11 @@ func (m *menu) autoOrder(c *config.Config) {
 		ao := &it.Misaka.AutoOrder
 		st := m.snapshot()
 		armed := ao.Enabled && ao.ArmID != "" && !st.ArmUsed(ao.ArmID)
+		m.screen()
 		m.printf("\nAuto-order for %s: %s\n  billing %s, ssh keys %v, hostname %q, coupon %q\n", it.Name,
 			map[bool]string{true: "ARMED", false: "disarmed"}[armed], ao.BillingCycle, ao.SSHKeyIDs, ao.Hostname, ao.Coupon)
 		m.printf(" 1) Order settings\n 2) Arm\n 3) Disarm\n 4) Price check (no order)\n 0) Back\n")
-		switch m.choose("> ", 4) {
+		switch m.pick("> ", 4) {
 		case 0:
 			return
 		case 1:
@@ -58,11 +59,13 @@ func (m *menu) autoOrder(c *config.Config) {
 			ao.ArmID = config.NewArmID()
 			if m.save(c) {
 				m.printf("Armed. The service picks this up within a few seconds.\n")
+				m.notice(c, fmt.Sprintf("🔫 Auto-order ARMED for %s\nOne order (unpaid invoice) will be placed as soon as it is in stock.\n%s", it.Name, aoSummary(*ao)))
 			}
 		case 3:
 			ao.Enabled = false
 			if m.save(c) {
 				m.printf("Disarmed.\n")
+				m.notice(c, "Auto-order disarmed for "+it.Name)
 			}
 		case 4:
 			m.priceCheck(c, it)
@@ -160,6 +163,7 @@ func (m *menu) orderSettings(c *config.Config, it *config.Item) {
 	}
 	if m.save(c) {
 		m.printf("Saved order settings.\n")
+		m.notice(c, fmt.Sprintf("⚙️ Auto-order settings changed for %s\n%s", it.Name, aoSummary(*ao)))
 	}
 }
 

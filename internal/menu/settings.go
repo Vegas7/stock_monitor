@@ -35,8 +35,9 @@ func (m *menu) settings(c *config.Config) {
 
 func (m *menu) maintenance() {
 	for !m.eof {
+		m.screen()
 		m.printf("\nInstalled version: %s\n 1) Update to the latest release\n 2) Uninstall stockmon\n 0) Back\n", m.o.Version)
-		switch m.choose("> ", 2) {
+		switch m.pick("> ", 2) {
 		case 0:
 			return
 		case 1:

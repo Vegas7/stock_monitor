@@ -28,13 +28,16 @@ type Options struct {
 	ServiceStatus                  func() string
 	Update                         func(ctx context.Context) error
 	Uninstall                      func(ctx context.Context) error
+	// ClearScreen gives every menu a clean screen (set when Out is a terminal).
+	ClearScreen bool
 }
 
 type menu struct {
-	o   Options
-	in  *bufio.Reader
-	eof bool
-	ctx context.Context
+	o     Options
+	in    *bufio.Reader
+	eof   bool
+	ctx   context.Context
+	dirty bool // something was printed since the current menu was drawn
 }
 
 // Run shows the menu until the user exits or input ends.
@@ -52,7 +55,33 @@ func Run(ctx context.Context, o Options) error {
 	return m.main()
 }
 
-func (m *menu) printf(format string, a ...any) { fmt.Fprintf(m.o.Out, format, a...) }
+func (m *menu) printf(format string, a ...any) {
+	fmt.Fprintf(m.o.Out, format, a...)
+	m.dirty = true
+}
+
+// screen starts a menu on a clean screen. If the last action printed a result,
+// it first waits for Enter so the result can be read.
+func (m *menu) screen() {
+	if !m.o.ClearScreen {
+		return
+	}
+	if m.dirty && !m.eof {
+		m.ask("\nPress Enter to continue...")
+	}
+	fmt.Fprint(m.o.Out, "\033[H\033[2J\033[3J")
+	m.dirty = false
+}
+
+// pick is choose for a menu or list: a valid choice starts a fresh "dirty" count,
+// so only what the chosen action prints makes the next screen pause.
+func (m *menu) pick(prompt string, n int) int {
+	i := m.choose(prompt, n)
+	if i >= 0 {
+		m.dirty = false
+	}
+	return i
+}
 
 // ask prints a prompt and reads one trimmed line ("" at EOF).
 func (m *menu) ask(prompt string) string {
@@ -135,12 +164,13 @@ func (m *menu) main() error {
 			m.printf("Config error: %v\nFix or delete %s, then run the menu again.\n", err, m.o.ConfigPath)
 			return nil
 		}
+		m.screen()
 		m.printf("\nstockmon %s — service: %s — %d items\n", m.o.Version, m.o.ServiceStatus(), len(c.Items))
 		m.printf(" 1) Show items and status\n 2) Add item\n 3) Edit / enable / disable / remove item\n 4) Test an item now\n" +
 			" 5) Telegram: set bot & chat ID, send test\n 6) Misaka account: set login, test login\n" +
 			" 7) Auto-order: settings, arm/disarm, price check\n 8) Settings (interval, warnings, heartbeat)\n" +
 			" 9) Update / uninstall\n 0) Exit\n")
-		switch m.choose("> ", 9) {
+		switch m.pick("> ", 9) {
 		case 0:
 			return nil
 		case 1:
@@ -181,7 +211,7 @@ func (m *menu) pickItem(c *config.Config, filter func(config.Item) bool) int {
 		it := c.Items[i]
 		m.printf(" %d) %s (%s)%s\n", n+1, it.Name, it.Type, map[bool]string{false: " [disabled]", true: ""}[it.Enabled])
 	}
-	n := m.choose("Item (0 = back): ", len(idx))
+	n := m.pick("Item (0 = back): ", len(idx))
 	if n <= 0 {
 		return -1
 	}

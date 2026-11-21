@@ -48,6 +48,11 @@ func exitOnInterrupt() {
 	}()
 }
 
+// isTerminal reports whether the menu is talking to a person at a terminal.
+func isTerminal() bool {
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 func serviceStatus() string {
 	out, err := exec.Command("systemctl", "is-active", "stockmon").Output()
 	if s := strings.TrimSpace(string(out)); s != "" {

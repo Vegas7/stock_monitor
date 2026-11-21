@@ -62,7 +62,7 @@ func main() {
 			ConfigPath: a.cfgPath, StatePath: a.statePath, Version: version,
 			In: os.Stdin, Out: os.Stdout, ReadSecret: readSecret, ServiceStatus: serviceStatus,
 			Update:    func(ctx context.Context) error { return a.update(ctx, false) },
-			Uninstall: a.uninstall,
+			Uninstall: a.uninstall, ClearScreen: isTerminal(),
 		})
 	case "run":
 		err = service.Run(ctx, service.Options{ConfigPath: a.cfgPath, StatePath: a.statePath, Version: version,
