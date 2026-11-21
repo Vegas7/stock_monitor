@@ -3,7 +3,8 @@
 #   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monitor/main/install.sh)"              install (or update)
 #   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monitor/main/install.sh)" _ uninstall  remove stockmon
 #   (or download it and run: sudo bash install.sh [install|update|uninstall])
-# Testing overrides: STOCKMON_RELEASE_API, STOCKMON_PREFIX, STOCKMON_SKIP_SYSTEMD=1
+# Testing overrides: STOCKMON_RELEASE_API, STOCKMON_PREFIX, STOCKMON_SKIP_SYSTEMD=1,
+#   STOCKMON_SYSTEMCTL (a stand-in systemctl, used even with STOCKMON_SKIP_SYSTEMD=1)
 set -euo pipefail
 
 RELEASE_API="${STOCKMON_RELEASE_API:-https://api.github.com/repos/Vegas7/stock_monitor/releases/latest}"
@@ -30,7 +31,14 @@ case "$(uname -m)" in
 esac
 ASSET="stockmon_linux_$ARCH"
 
-systemd() { [ "$SKIP_SYSTEMD" = 1 ] || systemctl "$@"; }
+SYSTEMCTL="${STOCKMON_SYSTEMCTL:-}"
+systemd() {
+  if [ -n "$SYSTEMCTL" ]; then
+    "$SYSTEMCTL" "$@"
+  elif [ "$SKIP_SYSTEMD" != 1 ]; then
+    systemctl "$@"
+  fi
+}
 
 RELEASE_JSON=""
 release_json() {
@@ -88,14 +96,21 @@ do_install() {
     chown stockmon:stockmon "$STATE_DIR"
   fi
   install_unit "$tmp"
-  say "Installed stockmon $(installed_version)."
+  # Start now and on every boot. Until the menu saves a config the service just waits.
+  systemd enable --now stockmon
+  say "Installed stockmon $(installed_version); the service is running and starts on every boot."
   cat <<MSG
 
-Next steps:
-  1. sudo stockmon menu                     # Telegram, account login, items
-  2. sudo systemctl enable --now stockmon   # start monitoring
-  Logs: journalctl -u stockmon -f
+Set up with: sudo stockmon menu      (Telegram, account login, items, auto-order)
+Changes from the menu reach the running service within a few seconds.
+  Status: systemctl status stockmon
+  Logs:   journalctl -u stockmon -f
 MSG
+  # Interactive install: go straight into setup.
+  if [ -z "$PREFIX" ] && [ -t 0 ] && [ -t 1 ]; then
+    say "Opening the setup menu..."
+    "$BIN" menu || true
+  fi
 }
 
 do_update() {

@@ -18,9 +18,12 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/Vegas7/stock_monito
 ```
 
 The script downloads the latest release for your CPU, checks its SHA-256, creates
-a `stockmon` system user and installs a systemd service (not started yet).
+a `stockmon` system user, installs the systemd service, **enables and starts it**
+(it waits quietly until you have set it up) and then opens the setup menu.
 
 ## First-time setup
+
+The installer opens the menu for you; open it again any time with:
 
 ```bash
 sudo stockmon menu
@@ -36,11 +39,8 @@ sudo stockmon menu
 4. **7 — Auto-order:** choose billing cycle, SSH keys, server name and coupon, run a
    **price check** (no order), then **arm** it.
 
-Then start the service:
-
-```bash
-sudo systemctl enable --now stockmon
-```
+Changes reach the running service within a few seconds — no restart needed.
+Check it with `systemctl status stockmon`.
 
 ## How auto-order works
 
@@ -67,8 +67,9 @@ Menu option 9 does the same.
 sudo stockmon uninstall
 ```
 
-You will be asked whether to also delete the config and state (recommended — they
-contain your password and bot token).
+This stops and disables the service and removes it. You will be asked whether to
+also delete the config and state (recommended — they contain your password and
+bot token).
 
 ## Where things live
 
