@@ -57,6 +57,7 @@ func main() {
 	case "version":
 		fmt.Println(version)
 	case "menu":
+		exitOnInterrupt()
 		err = menu.Run(ctx, menu.Options{
 			ConfigPath: a.cfgPath, StatePath: a.statePath, Version: version,
 			In: os.Stdin, Out: os.Stdout, ReadSecret: readSecret, ServiceStatus: serviceStatus,

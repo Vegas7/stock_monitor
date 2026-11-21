@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"golang.org/x/term"
 )
@@ -23,6 +25,27 @@ func readSecret(prompt string) (string, error) {
 	}
 	line, err := stdinReader.ReadString('\n')
 	return strings.TrimSpace(line), err
+}
+
+// exitOnInterrupt makes Ctrl+C (or SIGTERM) quit the interactive menu at once,
+// restoring the terminal first in case a hidden password prompt had turned echo off.
+// Every config write is atomic, so quitting at any point is safe.
+func exitOnInterrupt() {
+	fd := int(os.Stdin.Fd())
+	var st *term.State
+	if term.IsTerminal(fd) {
+		st, _ = term.GetState(fd)
+	}
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ch
+		if st != nil {
+			_ = term.Restore(fd, st)
+		}
+		fmt.Println("\nExited.")
+		os.Exit(130)
+	}()
 }
 
 func serviceStatus() string {
